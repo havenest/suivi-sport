@@ -99,7 +99,7 @@ th{color:var(--muted);font-weight:600;font-size:12px;border-top:0}
 
 /* forms */
 label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
-input[type=text],input[type=number],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;width:100%;min-width:0}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;width:100%;min-width:0}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
 textarea{resize:vertical;min-height:64px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -156,6 +156,15 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
 .up .when{font-size:12px;font-weight:700;color:var(--accent)}
 .chip.planned{background:none!important;box-shadow:inset 0 0 0 1.5px currentColor}
 .chip.planned.t-muscu{color:var(--muscu)}.chip.planned.t-cardio{color:var(--cardio)}.chip.planned.t-mixte{color:var(--mixte)}
+#btn-account{gap:7px}
+#btn-account .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+#btn-account[data-st="ok"] .dot{background:var(--cardio)}
+#btn-account[data-st="sync"] .dot{background:var(--accent);animation:pulse 1s infinite}
+#btn-account[data-st="err"] .dot{background:var(--danger)}
+@keyframes pulse{50%{opacity:.3}}
+@media (max-width:480px){#btn-account .txt,#btn-new .long{display:none}}
+.msg{font-size:14px;border-radius:10px;padding:10px 12px;margin-top:12px;background:var(--surface-2)}
+.msg.err{color:var(--danger)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;z-index:50}
 #toast.on{opacity:1;transform:translateX(-50%)}
 .note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:10px 12px}
@@ -165,7 +174,8 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
 <div class="wrap">
   <header>
     <div class="brand"><span class="logo">⚡</span>Suivi Sport</div>
-    <button class="btn primary" id="btn-new">+ Séance du jour</button>
+    <button class="btn primary" id="btn-new">+ Séance<span class="long">&nbsp;du jour</span></button>
+    <button class="btn" id="btn-account" hidden data-st="out" title="Compte et synchronisation"><span class="dot"></span><span class="txt">Se connecter</span></button>
     <button class="btn" id="btn-settings" title="Réglages et sauvegarde">⚙︎</button>
   </header>
 
@@ -276,7 +286,7 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
       <label class="f">Objectif de séances par semaine<input type="number" id="set-goal" min="1" max="14"></label>
       <div class="sec">
         <div class="sec-t">Sauvegarde des données</div>
-        <p class="note">Tes séances sont enregistrées dans ce navigateur, sur cet ordinateur. Exporte régulièrement un fichier de sauvegarde (.json) et garde-le dans ton dossier : il te permet de tout récupérer si le navigateur est vidé, ou de passer sur un autre appareil.</p>
+        <p class="note">Quand tu es connecté à ton compte, tes séances sont enregistrées en ligne et synchronisées entre tes appareils. Sans connexion, elles restent dans ce navigateur. Un export (.json) reste une bonne sauvegarde de secours.</p>
         <p class="muted" id="set-lastexport" style="font-size:13px"></p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn primary" id="set-export">Exporter mes données</button>
@@ -289,11 +299,44 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
   </div>
 </dialog>
 
+<!-- Compte -->
+<dialog id="m-account">
+  <div class="dlg">
+    <div class="dlg-h"><h2>Compte &amp; synchronisation</h2><button class="icon" data-close aria-label="Fermer">✕</button></div>
+    <div class="dlg-b">
+      <div id="acc-out">
+        <p class="muted" style="margin-top:0">Connecte-toi pour enregistrer tes séances en ligne et les retrouver sur ton PC comme sur ton téléphone.</p>
+        <form id="acc-form" style="display:flex;flex-direction:column;gap:12px">
+          <label class="f">E-mail<input type="email" id="acc-email" autocomplete="email" required></label>
+          <label class="f">Mot de passe<input type="password" id="acc-pass" autocomplete="current-password" minlength="6" required></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn primary" type="submit">Se connecter</button>
+            <button class="btn" type="button" id="acc-signup">Créer mon compte</button>
+          </div>
+        </form>
+      </div>
+      <div id="acc-in" hidden>
+        <p style="margin-top:0">Connecté en tant que <b id="acc-who"></b>.</p>
+        <p class="muted" id="acc-status" style="font-size:14px"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="acc-sync">Synchroniser maintenant</button>
+          <button class="btn danger" id="acc-logout">Se déconnecter</button>
+        </div>
+      </div>
+      <div class="msg" id="acc-msg" hidden></div>
+    </div>
+  </div>
+</dialog>
+
 <datalist id="dl-exos"></datalist>
 <datalist id="dl-machines"></datalist>
 <div id="toast" role="status"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+/* ===== Configuration Supabase ===== */
+const SUPABASE_URL='A_REMPLACER';
+const SUPABASE_KEY='A_REMPLACER';
 (function(){
 'use strict';
 const KEY='suiviSport.v1';
@@ -330,13 +373,16 @@ function normalize(s){
   const d=defaultState();
   if(!s||typeof s!=='object')return d;
   const fixItem=o=>({...o,exercises:Array.isArray(o.exercises)?o.exercises.map(e=>({name:e.name||'',sets:Array.isArray(e.sets)?e.sets:[]})):[],cardio:Array.isArray(o.cardio)?o.cardio:[],type:TYPES[o.type]?o.type:'muscu'});
-  return {version:1,goal:Number(s.goal)>0?Number(s.goal):3,lastExport:s.lastExport||null,
+  return {version:1,updatedAt:s.updatedAt||null,goal:Number(s.goal)>0?Number(s.goal):3,lastExport:s.lastExport||null,
     sessions:Array.isArray(s.sessions)?s.sessions.filter(x=>x&&x.date).map(o=>({id:o.id||uid(),feeling:0,notes:'',duration:0,...fixItem(o)})):[],
     weights:Array.isArray(s.weights)?s.weights.filter(w=>w&&w.date&&w.kg).map(w=>({id:w.id||uid(),date:w.date,kg:num(w.kg)})):[],
     templates:Array.isArray(s.templates)?s.templates.map(o=>({id:o.id||uid(),name:o.name||'Programme',duration:o.duration||0,...fixItem(o)})):d.templates};
 }
 function load(){try{const raw=localStorage.getItem(KEY);if(raw)return normalize(JSON.parse(raw));}catch(e){}return defaultState();}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('Impossible d’enregistrer dans ce navigateur — exporte tes données');}}
+function writeLocal(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('Impossible d’enregistrer dans ce navigateur — exporte tes données');}}
+function save(){state.updatedAt=new Date().toISOString();writeLocal();setDirty(true);schedulePush();}
+function isDirty(){try{return localStorage.getItem(KEY+'.dirty')==='1';}catch(e){return false;}}
+function setDirty(v){try{v?localStorage.setItem(KEY+'.dirty','1'):localStorage.removeItem(KEY+'.dirty');}catch(e){}}
 
 let state=load();
 let tab='cal';
@@ -726,6 +772,79 @@ function renderBanner(){
 }
 $('#quote-next').onclick=()=>{qIdx=(qIdx+1)%QUOTES.length;renderBanner();};
 $('#upcoming').addEventListener('click',e=>{const b=e.target.closest('[data-up]');if(!b)return;const s=state.sessions.find(x=>x.id===b.dataset.up);if(s)openEditor(s);});
+
+/* ---------- synchronisation en ligne (Supabase) ---------- */
+const TABLE='suivi_sport';
+const sb=(window.supabase&&/^https:\/\//.test(SUPABASE_URL)&&SUPABASE_KEY.length>20)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+let user=null,pushT=null,syncing=false,lastSync=null;
+function setStatus(st,txt){
+  const b=$('#btn-account');b.dataset.st=st;b.querySelector('.txt').textContent=txt;
+  const el=$('#acc-status');if(el)el.textContent=st==='ok'&&lastSync?`Synchronisé à ${lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}.`:txt;
+}
+function accMsg(t,err){const m=$('#acc-msg');m.hidden=!t;m.textContent=t||'';m.classList.toggle('err',!!err);}
+function frErr(e){const m=(e&&e.message)||String(e);
+  if(/Invalid login/i.test(m))return 'E-mail ou mot de passe incorrect.';
+  if(/not confirmed/i.test(m))return 'Ton e-mail n’est pas encore confirmé : clique sur le lien reçu par mail.';
+  if(/already registered|already exists/i.test(m))return 'Un compte existe déjà avec cet e-mail : connecte-toi.';
+  if(/Password should be/i.test(m))return 'Le mot de passe doit faire au moins 6 caractères.';
+  if(/Failed to fetch|NetworkError|network/i.test(m))return 'Pas de connexion internet.';
+  return m;}
+function schedulePush(){if(!sb||!user)return;clearTimeout(pushT);setStatus('sync','Synchro…');pushT=setTimeout(push,700);}
+async function push(){
+  if(!sb||!user)return;clearTimeout(pushT);
+  const {error}=await sb.from(TABLE).upsert({user_id:user.id,data:state,updated_at:new Date().toISOString()});
+  if(error){setStatus('err','Hors ligne');return false;}
+  setDirty(false);lastSync=new Date();setStatus('ok','Synchronisé');return true;
+}
+async function pull(){
+  if(!sb||!user||syncing)return;syncing=true;setStatus('sync','Synchro…');
+  try{
+    const {data,error}=await sb.from(TABLE).select('data').eq('user_id',user.id).maybeSingle();
+    if(error)throw error;
+    if(!data){await push();return;} /* première connexion : on envoie les données de cet appareil */
+    const remote=normalize(data.data),rT=data.data.updatedAt||'',lT=state.updatedAt||'';
+    if(isDirty()&&lT>rT){await push();return;}
+    if(rT!==lT||!isDirty()){state=remote;writeLocal();setDirty(false);renderAll();}
+    lastSync=new Date();setStatus('ok','Synchronisé');
+  }catch(e){setStatus('err','Hors ligne');}
+  finally{syncing=false;}
+}
+function showAccount(){
+  $('#acc-out').hidden=!!user;$('#acc-in').hidden=!user;
+  if(user)$('#acc-who').textContent=user.email;
+  accMsg('');openDlg('#m-account');
+}
+if(sb){
+  $('#btn-account').hidden=false;
+  $('#btn-account').onclick=showAccount;
+  $('#acc-form').onsubmit=async e=>{
+    e.preventDefault();accMsg('Connexion…');
+    const {error}=await sb.auth.signInWithPassword({email:$('#acc-email').value.trim(),password:$('#acc-pass').value});
+    if(error)accMsg(frErr(error),true);else{accMsg('');closeDlg('#m-account');toast('Connecté ✓');}
+  };
+  $('#acc-signup').onclick=async()=>{
+    const email=$('#acc-email').value.trim(),password=$('#acc-pass').value;
+    if(!email||password.length<6){accMsg('Indique ton e-mail et un mot de passe d’au moins 6 caractères.',true);return;}
+    accMsg('Création du compte…');
+    const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+    if(error)accMsg(frErr(error),true);
+    else if(!data.session)accMsg('Compte créé ! Clique sur le lien de confirmation reçu par e-mail, puis reviens te connecter ici.');
+    else{closeDlg('#m-account');toast('Compte créé ✓');}
+  };
+  $('#acc-logout').onclick=async()=>{await sb.auth.signOut();closeDlg('#m-account');toast('Déconnecté');};
+  $('#acc-sync').onclick=async()=>{if(isDirty())await push();await pull();toast('Synchronisé');};
+  sb.auth.onAuthStateChange((ev,session)=>{
+    const was=user&&user.id;user=session?session.user:null;
+    if(!user){setStatus('out','Se connecter');return;}
+    if(was!==user.id)setTimeout(pull,0);
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(!user)return;
+    if(document.visibilityState==='visible')pull();
+    else if(isDirty())push();
+  });
+  window.addEventListener('online',()=>{if(user){isDirty()?push():pull();}});
+}
 
 /* ---------- init ---------- */
 function renderAll(){
