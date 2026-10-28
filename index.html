@@ -257,7 +257,7 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
 </div>
 
 <!-- Éditeur séance / programme -->
-<dialog id="m-editor">
+<dialog id="m-editor" data-sticky>
   <div class="dlg">
     <div class="dlg-h"><h2 id="editor-title"></h2><button class="icon" data-close aria-label="Fermer">✕</button></div>
     <div class="dlg-b" id="editor-body"></div>
@@ -301,7 +301,7 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
 </dialog>
 
 <!-- Compte -->
-<dialog id="m-account">
+<dialog id="m-account" data-sticky>
   <div class="dlg">
     <div class="dlg-h"><h2>Compte &amp; synchronisation</h2><button class="icon" data-close aria-label="Fermer">✕</button></div>
     <div class="dlg-b">
@@ -403,7 +403,9 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');
 function openDlg(id){const d=$(id);if(!d.open)d.showModal();}
 function closeDlg(id){const d=$(id);if(d.open)d.close();}
 document.querySelectorAll('dialog').forEach(d=>{
-  d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close();});
+  const sticky=d.hasAttribute('data-sticky');
+  d.addEventListener('click',e=>{if(e.target.closest('[data-close]')||(e.target===d&&!sticky))d.close();});
+  if(sticky)d.addEventListener('cancel',e=>e.preventDefault());
 });
 
 /* ---------- tabs ---------- */
@@ -783,7 +785,7 @@ $('#upcoming').addEventListener('click',e=>{const b=e.target.closest('[data-up]'
 
 /* ---------- synchronisation en ligne (Supabase) ---------- */
 const TABLE='suivi_sport';
-const APP_VERSION='28/10 · v4';
+const APP_VERSION='28/10 · v5';
 const HP=new URLSearchParams(location.hash.slice(1)),QP=new URLSearchParams(location.search);
 let recovering=HP.get('type')==='recovery'||QP.get('reset')==='1';
 const linkError=HP.get('error_description')||QP.get('error_description')||HP.get('error_code')||'';
