@@ -19,6 +19,7 @@
   }
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -313,8 +314,14 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
             <button class="btn primary" type="submit">Se connecter</button>
             <button class="btn" type="button" id="acc-signup">Créer mon compte</button>
           </div>
+          <button class="link" type="button" id="acc-forgot" style="align-self:flex-start">Mot de passe oublié ?</button>
         </form>
       </div>
+      <form id="acc-reset" hidden style="display:flex;flex-direction:column;gap:12px">
+        <p style="margin:0">Choisis ton nouveau mot de passe.</p>
+        <label class="f">Nouveau mot de passe<input type="password" id="acc-newpass" autocomplete="new-password" minlength="6" required></label>
+        <div><button class="btn primary" type="submit">Enregistrer le mot de passe</button></div>
+      </form>
       <div id="acc-in" hidden>
         <p style="margin-top:0">Connecté en tant que <b id="acc-who"></b>.</p>
         <p class="muted" id="acc-status" style="font-size:14px"></p>
@@ -809,8 +816,10 @@ async function pull(){
   }catch(e){setStatus('err','Hors ligne');}
   finally{syncing=false;}
 }
+let recovering=false;
 function showAccount(){
-  $('#acc-out').hidden=!!user;$('#acc-in').hidden=!user;
+  $('#acc-reset').hidden=!recovering;
+  $('#acc-out').hidden=!!user||recovering;$('#acc-in').hidden=!user||recovering;
   if(user)$('#acc-who').textContent=user.email;
   accMsg('');openDlg('#m-account');
 }
@@ -831,10 +840,24 @@ if(sb){
     else if(!data.session)accMsg('Compte créé ! Clique sur le lien de confirmation reçu par e-mail, puis reviens te connecter ici.');
     else{closeDlg('#m-account');toast('Compte créé ✓');}
   };
+  $('#acc-forgot').onclick=async()=>{
+    const email=$('#acc-email').value.trim();
+    if(!email){accMsg('Indique ton e-mail ci-dessus, puis clique à nouveau sur « Mot de passe oublié ? ».',true);return;}
+    accMsg('Envoi…');
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    accMsg(error?frErr(error):'E-mail envoyé ! Clique sur le lien reçu : tu reviendras ici pour choisir un nouveau mot de passe.',!!error);
+  };
+  $('#acc-reset').onsubmit=async e=>{
+    e.preventDefault();
+    const {error}=await sb.auth.updateUser({password:$('#acc-newpass').value});
+    if(error){accMsg(frErr(error),true);return;}
+    recovering=false;$('#acc-newpass').value='';closeDlg('#m-account');toast('Mot de passe modifié ✓');
+  };
   $('#acc-logout').onclick=async()=>{await sb.auth.signOut();closeDlg('#m-account');toast('Déconnecté');};
   $('#acc-sync').onclick=async()=>{if(isDirty())await push();await pull();toast('Synchronisé');};
   sb.auth.onAuthStateChange((ev,session)=>{
     const was=user&&user.id;user=session?session.user:null;
+    if(ev==='PASSWORD_RECOVERY'){recovering=true;setTimeout(showAccount,0);}
     if(!user){setStatus('out','Se connecter');return;}
     if(was!==user.id)setTimeout(pull,0);
   });
