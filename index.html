@@ -331,6 +331,7 @@ dialog::backdrop{background:rgba(10,10,10,.45)}
         </div>
       </div>
       <div class="msg" id="acc-msg" hidden></div>
+      <p class="muted" id="acc-ver" style="font-size:11px;margin:14px 0 0;text-align:right"></p>
     </div>
   </div>
 </dialog>
@@ -782,6 +783,10 @@ $('#upcoming').addEventListener('click',e=>{const b=e.target.closest('[data-up]'
 
 /* ---------- synchronisation en ligne (Supabase) ---------- */
 const TABLE='suivi_sport';
+const APP_VERSION='28/10 · v4';
+const HP=new URLSearchParams(location.hash.slice(1)),QP=new URLSearchParams(location.search);
+let recovering=HP.get('type')==='recovery'||QP.get('reset')==='1';
+const linkError=HP.get('error_description')||QP.get('error_description')||HP.get('error_code')||'';
 const sb=(window.supabase&&/^https:\/\//.test(SUPABASE_URL)&&SUPABASE_KEY.length>20)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
 let user=null,pushT=null,syncing=false,lastSync=null;
 function setStatus(st,txt){
@@ -794,6 +799,8 @@ function frErr(e){const m=(e&&e.message)||String(e);
   if(/not confirmed/i.test(m))return 'Ton e-mail n’est pas encore confirmé : clique sur le lien reçu par mail.';
   if(/already registered|already exists/i.test(m))return 'Un compte existe déjà avec cet e-mail : connecte-toi.';
   if(/Password should be/i.test(m))return 'Le mot de passe doit faire au moins 6 caractères.';
+  if(/session missing|session_not_found|expired/i.test(m))return 'Le lien de réinitialisation a expiré ou a déjà servi. Redemande un e-mail avec « Mot de passe oublié ? ».';
+  if(/different from the old|same_password/i.test(m))return 'Choisis un mot de passe différent de l’ancien.';
   if(/Failed to fetch|NetworkError|network/i.test(m))return 'Pas de connexion internet.';
   return m;}
 function schedulePush(){if(!sb||!user)return;clearTimeout(pushT);setStatus('sync','Synchro…');pushT=setTimeout(push,700);}
@@ -816,11 +823,11 @@ async function pull(){
   }catch(e){setStatus('err','Hors ligne');}
   finally{syncing=false;}
 }
-let recovering=false;
 function showAccount(){
   $('#acc-reset').hidden=!recovering;
   $('#acc-out').hidden=!!user||recovering;$('#acc-in').hidden=!user||recovering;
   if(user)$('#acc-who').textContent=user.email;
+  $('#acc-ver').textContent='Version '+APP_VERSION;
   accMsg('');openDlg('#m-account');
 }
 if(sb){
@@ -844,14 +851,14 @@ if(sb){
     const email=$('#acc-email').value.trim();
     if(!email){accMsg('Indique ton e-mail ci-dessus, puis clique à nouveau sur « Mot de passe oublié ? ».',true);return;}
     accMsg('Envoi…');
-    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+'?reset=1'});
     accMsg(error?frErr(error):'E-mail envoyé ! Clique sur le lien reçu : tu reviendras ici pour choisir un nouveau mot de passe.',!!error);
   };
   $('#acc-reset').onsubmit=async e=>{
     e.preventDefault();
     const {error}=await sb.auth.updateUser({password:$('#acc-newpass').value});
     if(error){accMsg(frErr(error),true);return;}
-    recovering=false;$('#acc-newpass').value='';closeDlg('#m-account');toast('Mot de passe modifié ✓');
+    recovering=false;$('#acc-newpass').value='';history.replaceState(null,'',location.pathname);closeDlg('#m-account');toast('Mot de passe modifié ✓');
   };
   $('#acc-logout').onclick=async()=>{await sb.auth.signOut();closeDlg('#m-account');toast('Déconnecté');};
   $('#acc-sync').onclick=async()=>{if(isDirty())await push();await pull();toast('Synchronisé');};
@@ -866,6 +873,8 @@ if(sb){
     if(document.visibilityState==='visible')pull();
     else if(isDirty())push();
   });
+  if(linkError){setTimeout(()=>{recovering=false;showAccount();accMsg(/expired|invalid|otp/i.test(linkError)?'Ce lien a expiré ou a déjà été utilisé. Indique ton e-mail et clique à nouveau sur « Mot de passe oublié ? ».':linkError,true);history.replaceState(null,'',location.pathname);},0);}
+  else if(recovering)setTimeout(showAccount,0);
   window.addEventListener('online',()=>{if(user){isDirty()?push():pull();}});
 }
 
